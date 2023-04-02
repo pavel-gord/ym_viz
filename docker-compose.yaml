@@ -1,0 +1,87 @@
+version: '3.9'
+
+services:
+
+  # ClickHouse database
+  clickhouse:
+    build:
+      context: ./clickhouse
+      dockerfile: Dockerfile.clickhouse
+    container_name: ${CLICKHOUSE_HOST}
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+    # networks:
+    #   - ${NETWORK}
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./clickhouse/db_source:/var/lib/clickhouse
+      - ./clickhouse/logs:/var/log/clickhouse-server
+    user: "p-gordeychuk:p-gordeychuk"
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user ${CLICKHOUSE_USER} --password ${CLICKHOUSE_PASSWORD} --query 'SELECT 1' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  
+  # First migration - fill a database with up-to-date data
+  migration:
+    build:
+      context: ./migration
+      dockerfile: Dockerfile.migration
+    container_name: migration
+    environment:
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - CLICKHOUSE_TABLE=${CLICKHOUSE_TABLE}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - START_DATE=${START_DATE}
+      - END_DATE=${END_DATE}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    # networks:
+    #   - yam_network
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+  
+#   scheduler:
+#     image: apache/airflow
+#     container_name: scheduler
+#     ports:
+#       - "8080:8080"
+#     volumes:
+#       - ./airflow/dags:/usr/local/airflow/dags
+#       - ./airflow/logs:/usr/local/airflow/logs
+#       - ./airflow/plugins:/usr/local/airflow/plugins
+
+#   data-updater:
+#     build: ./data-updater
+#     container_name: data-updater
+#     depends_on:
+#       - clickhouse
+#   ml-module:
+#     build: ./ml-module
+#     container_name: ml-module
+#     depends_on:
+#       - clickhouse
+#   superset:
+#     image: apache/superset
+#     container_name: superset
+#     ports:
+#       - "8088:8088"
+#     depends_on:
+#       - clickhouse
+
+# networks:
+#   yam_network:
+#     name: ${NETWORK}
+#     driver: bridge
