@@ -12,15 +12,14 @@ services:
       - CLICKHOUSE_DB=${CLICKHOUSE_DB}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-    # networks:
-    #   - ${NETWORK}
+    networks:
+      - yam_network
     ports:
       - "8123:8123"
       - "9000:9000"
     volumes:
       - ./clickhouse/db_source:/var/lib/clickhouse
       - ./clickhouse/logs:/var/log/clickhouse-server
-    user: "p-gordeychuk:p-gordeychuk"
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --user ${CLICKHOUSE_USER} --password ${CLICKHOUSE_PASSWORD} --query 'SELECT 1' || exit 1"]
       interval: 30s
@@ -47,41 +46,37 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-    # networks:
-    #   - yam_network
+    networks:
+      - yam_network
     depends_on:
       clickhouse:
         condition: service_healthy
   
-#   scheduler:
-#     image: apache/airflow
-#     container_name: scheduler
-#     ports:
-#       - "8080:8080"
-#     volumes:
-#       - ./airflow/dags:/usr/local/airflow/dags
-#       - ./airflow/logs:/usr/local/airflow/logs
-#       - ./airflow/plugins:/usr/local/airflow/plugins
+  # # AirFlow scheduler
+  # scheduler:
+  #   image: apache/airflow
+  #   container_name: scheduler
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./airflow/dags:/usr/local/airflow/dags
+  #     - ./airflow/logs:/usr/local/airflow/logs
+  #     - ./airflow/plugins:/usr/local/airflow/plugins
+  #   networks:
+  #     - yam_network
+  #   depends_on:
+  #     - clickhouse
 
-#   data-updater:
-#     build: ./data-updater
-#     container_name: data-updater
-#     depends_on:
-#       - clickhouse
-#   ml-module:
-#     build: ./ml-module
-#     container_name: ml-module
-#     depends_on:
-#       - clickhouse
-#   superset:
-#     image: apache/superset
-#     container_name: superset
-#     ports:
-#       - "8088:8088"
-#     depends_on:
-#       - clickhouse
+  # # Superset - BI tool for vizes
+  # superset:
+  #   image: apache/superset
+  #   container_name: superset
+  #   ports:
+  #     - "8088:8088"
+  #   depends_on:
+  #     - clickhouse
 
-# networks:
-#   yam_network:
-#     name: ${NETWORK}
-#     driver: bridge
+networks:
+  yam_network:
+    name: ${NETWORK}
+    driver: bridge
